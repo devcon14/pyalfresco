@@ -1,11 +1,13 @@
 import urllib
 import urllib2
 import xml.etree.ElementTree as ET
-
+import re
+import logging
 
 class Alfresco:
 
 	def __init__(self, host, username, password, SSL=False):
+		self.LOGGER = logging.getLogger(__name__)
 		self.protocol = "http"
 		if SSL:
 			self.protocol += "s"
@@ -22,7 +24,17 @@ class Alfresco:
 	def ticket_authentication(self):
 		self.ticket = urllib2.urlopen("{}://{}/alfresco/service/api/login?u={}&pw={}".format(self.protocol, self.host, self.username, self.password)).read()
 		self.ticket = re.match(r".*(TICKET_.*)<", self.ticket, re.DOTALL).group(1)
+		self.LOGGER.debug(("alfresco ticket", self.ticket))
 
+	def call_webscript(self, request_path):
+		if "?" in request_path:
+			ticket_seperator = "&"
+		else:
+			ticket_seperator = "?"
+		service_uri = "{}://{}/alfresco/service{}{}alf_ticket={}".format(self.protocol, self.host, request_path, ticket_seperator, self.ticket)
+		self.LOGGER.debug(service_uri)
+		return urllib2.urlopen(service_uri).read()
+	
 	def basic_authentication(self):
 		password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
 		password_mgr.add_password(
